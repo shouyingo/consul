@@ -1,26 +1,22 @@
 package consul
 
-import (
-	"github.com/hashicorp/consul/api"
-)
-
 const (
 	WatchAdd = iota
 	WatchChange
 	WatchRemove
 )
 
-type WatchFunc func(action int, id string, svc *Service)
+type WatchFunc func(action int, id string, svc *AgentService)
 
 type watchService struct {
-	svc         Service
+	svc         AgentService
 	createIndex uint64
 	modifyIndex uint64
 	lastIndex   uint64
 }
 
 type Watcher struct {
-	c    *Consul
+	c    *Client
 	name string
 	tag  string
 }
@@ -28,9 +24,8 @@ type Watcher struct {
 func (w *Watcher) Watch(wfn WatchFunc) error {
 	watchsvcs := make(map[string]*watchService)
 	lastIndex := uint64(0)
-	client := w.c.client
 	for {
-		services, meta, err := client.Catalog().Service(w.name, w.tag, &api.QueryOptions{
+		services, meta, err := w.c.CatalogService(w.name, w.tag, &QueryOptions{
 			WaitIndex: lastIndex,
 		})
 		if err != nil {
@@ -41,7 +36,7 @@ func (w *Watcher) Watch(wfn WatchFunc) error {
 			ws := watchsvcs[s.ServiceID]
 			if ws == nil {
 				ws = &watchService{
-					svc: Service{
+					svc: AgentService{
 						ID:      s.ServiceID,
 						Name:    s.ServiceName,
 						Address: s.ServiceAddress,
@@ -54,7 +49,7 @@ func (w *Watcher) Watch(wfn WatchFunc) error {
 				watchsvcs[s.ServiceID] = ws
 				wfn(WatchAdd, s.ServiceID, &ws.svc)
 			} else if ws.modifyIndex != s.ModifyIndex {
-				ws.svc = Service{
+				ws.svc = AgentService{
 					ID:      s.ServiceID,
 					Name:    s.ServiceName,
 					Address: s.ServiceAddress,

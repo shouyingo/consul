@@ -8,31 +8,28 @@ import (
 )
 
 func TestWatch(t *testing.T) {
-	c, err := New("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	c := New("http://127.0.0.1:8500")
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		w := c.Watcher("consul-watch", "")
-		err := w.Watch(func(action int, id string, s *Service) {
+		err := w.Watch(func(action int, id string, s *AgentService) {
 			fmt.Println(">>>> onwatch", action, id, s)
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	svc := &Service{
-		Name:    "consul-watch",
-		Address: "127.0.0.1",
-		Port:    2333,
-	}
 	svcmock := func(bad bool) {
 		defer wg.Done()
-		time.Sleep(time.Second)
+		svc := &AgentService{
+			Name:    "consul-watch",
+			Address: "127.0.0.1",
+			Port:    2333,
+		}
 		id, err := c.Register(svc, 10*time.Second, time.Minute)
+		fmt.Println(">>>> register", id, bad)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -47,7 +44,8 @@ func TestWatch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		c.Deregister(id)
+		fmt.Println(">>>> exit", id)
+		c.AgentServiceDeregister(id)
 	}
 
 	go svcmock(true)
