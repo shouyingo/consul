@@ -13,8 +13,7 @@ func TestWatch(t *testing.T) {
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		w := c.Watcher("consul-watch", "")
-		err := w.Watch(func(action int, id string, s *AgentService) {
+		err := c.Watch("consul-watch", "", func(action int, id string, s *CatalogService) {
 			fmt.Println(">>>> onwatch", action, id, s)
 		})
 		if err != nil {

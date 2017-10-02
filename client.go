@@ -11,14 +11,6 @@ type Client struct {
 	token string
 }
 
-func (c *Client) Watcher(service string, tag string) *Watcher {
-	return &Watcher{
-		c:    c,
-		name: service,
-		tag:  tag,
-	}
-}
-
 func (c *Client) KeepAlive(id string, ttl time.Duration, cancel <-chan struct{}) error {
 	t := time.NewTicker(ttl)
 	defer t.Stop()
