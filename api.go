@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -46,6 +47,16 @@ type AgentService struct {
 	Check   AgentServiceCheck
 }
 
+type KVPair struct {
+	LockIndex uint64
+	Key       string
+	Flags     uint64
+	Value     []byte
+
+	CreateIndex uint64
+	ModifyIndex uint64
+}
+
 type request struct {
 	method string
 	path   string
@@ -79,7 +90,7 @@ func (c *Client) newRequest(r *request) (*http.Request, error) {
 	return req, nil
 }
 
-func (c *Client) do(req *http.Request) (*http.Response, error) {
+func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 	req.Header.Set("Content-Type", "application/json")
 	if c.token != "" {
 		req.Header.Set("X-Consul-Token", c.token)
@@ -99,7 +110,11 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 func (c *Client) call(r *request) error {
 	req, err := c.newRequest(r)
 	if err == nil {
-		_, err = c.do(req)
+		resp, err := c.doRequest(req)
+		if err == nil {
+			io.CopyBuffer(ioutil.Discard, resp.Body, make([]byte, 1024))
+			resp.Body.Close()
+		}
 	}
 	return err
 }
@@ -117,7 +132,7 @@ func (c *Client) query(r *request, o *QueryOptions, out interface{}) (*QueryMeta
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.do(req)
+	resp, err := c.doRequest(req)
 	if err != nil {
 		return nil, err
 	}
@@ -169,4 +184,17 @@ func (c *Client) CatalogService(service string, tag string, options *QueryOption
 		return nil, nil, err
 	}
 	return svcs, meta, nil
+}
+
+func (c *Client) KVList(prefix string, options *QueryOptions) ([]KVPair, *QueryMeta, error) {
+	var paris []KVPair
+	meta, err := c.query(&request{
+		method: "GET",
+		path:   "/v1/kv/" + strings.TrimPrefix(prefix, "/"),
+		params: []string{"recurse", ""},
+	}, options, &paris)
+	if err != nil {
+		return nil, nil, err
+	}
+	return paris, meta, nil
 }

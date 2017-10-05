@@ -1,3 +1,5 @@
+// +build tested
+
 package consul
 
 import (
@@ -8,7 +10,7 @@ import (
 )
 
 func TestWatch(t *testing.T) {
-	c := New("http://127.0.0.1:8500")
+	c := New("http://127.0.0.1:8500", "")
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	go func() {

@@ -44,12 +44,13 @@ func (c *Client) Register(s *AgentService, ttl time.Duration, timeout time.Durat
 	return s.ID, nil
 }
 
-func New(addr string) *Client {
+func New(addr string, token string) *Client {
 	addr = strings.Trim(addr, "/")
 	if !strings.Contains(addr, "://") {
 		addr = "http://" + addr
 	}
 	return &Client{
-		addr: addr,
+		addr:  addr,
+		token: token,
 	}
 }
