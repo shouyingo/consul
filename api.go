@@ -64,13 +64,27 @@ type request struct {
 	body   []byte
 }
 
+func readError(resp *http.Response) error {
+	if resp.StatusCode != http.StatusOK {
+		data, _ := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		return fmt.Errorf("%d %s", resp.StatusCode, data)
+	}
+	return nil
+}
+
+func discardBody(resp *http.Response) {
+	io.CopyBuffer(ioutil.Discard, resp.Body, make([]byte, 1024))
+	resp.Body.Close()
+}
+
 func getMeta(resp *http.Response) *QueryMeta {
 	meta := &QueryMeta{}
 	meta.LastIndex, _ = strconv.ParseUint(resp.Header.Get("X-Consul-Index"), 10, 64)
 	return meta
 }
 
-func (c *Client) newRequest(r *request) (*http.Request, error) {
+func (c *Client) doRequest(r *request) (*http.Response, error) {
 	var rd io.Reader
 	if r.body != nil {
 		rd = bytes.NewReader(r.body)
@@ -87,36 +101,23 @@ func (c *Client) newRequest(r *request) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	return req, nil
-}
-
-func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 	req.Header.Set("Content-Type", "application/json")
 	if c.token != "" {
 		req.Header.Set("X-Consul-Token", c.token)
 	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		data, _ := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, data)
-	}
-	return resp, nil
+	return http.DefaultClient.Do(req)
 }
 
 func (c *Client) call(r *request) error {
-	req, err := c.newRequest(r)
-	if err == nil {
-		resp, err := c.doRequest(req)
-		if err == nil {
-			io.CopyBuffer(ioutil.Discard, resp.Body, make([]byte, 1024))
-			resp.Body.Close()
-		}
+	resp, err := c.doRequest(r)
+	if err != nil {
+		return err
 	}
-	return err
+	if resp.StatusCode != http.StatusOK {
+		return readError(resp)
+	}
+	discardBody(resp)
+	return nil
 }
 
 func (c *Client) query(r *request, o *QueryOptions, out interface{}) (*QueryMeta, error) {
@@ -128,21 +129,24 @@ func (c *Client) query(r *request, o *QueryOptions, out interface{}) (*QueryMeta
 			r.params = append(r.params, "wait", strconv.FormatInt(int64(o.WaitTime/time.Millisecond), 10)+"ms")
 		}
 	}
-	req, err := c.newRequest(r)
+	resp, err := c.doRequest(r)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return nil, err
-	}
+
 	meta := getMeta(resp)
-	if out != nil {
-		data, _ := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		return meta, json.Unmarshal(data, out)
+	if resp.StatusCode == http.StatusOK {
+		if out != nil {
+			data, _ := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			err = json.Unmarshal(data, out)
+		} else {
+			discardBody(resp)
+		}
+	} else {
+		err = readError(resp)
 	}
-	return meta, nil
+	return meta, err
 }
 
 func (c *Client) AgentPassTTL(id string, note string) error {
@@ -187,14 +191,19 @@ func (c *Client) CatalogService(service string, tag string, options *QueryOption
 }
 
 func (c *Client) KVList(prefix string, options *QueryOptions) ([]KVPair, *QueryMeta, error) {
-	var paris []KVPair
+	var pairs []KVPair
 	meta, err := c.query(&request{
 		method: "GET",
 		path:   "/v1/kv/" + strings.TrimPrefix(prefix, "/"),
 		params: []string{"recurse", ""},
-	}, options, &paris)
-	if err != nil {
-		return nil, nil, err
-	}
-	return paris, meta, nil
+	}, options, &pairs)
+	return pairs, meta, err
+}
+
+func (c *Client) KVPut(key string, value string) error {
+	return c.call(&request{
+		method: "PUT",
+		path:   "/v1/kv/" + strings.TrimPrefix(key, "/"),
+		body:   []byte(value),
+	})
 }

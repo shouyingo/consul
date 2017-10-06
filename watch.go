@@ -14,7 +14,7 @@ type watchService struct {
 	lastIndex   uint64
 }
 
-func (c *Client) Watch(service string, tag string, wfn WatchFunc) error {
+func (c *Client) WatchCatalogService(service string, tag string, wfn WatchFunc) error {
 	watchsvcs := make(map[string]*watchService)
 	lastIndex := uint64(0)
 	for {
@@ -22,6 +22,10 @@ func (c *Client) Watch(service string, tag string, wfn WatchFunc) error {
 			WaitIndex: lastIndex,
 		})
 		if err != nil {
+			if meta != nil && meta.LastIndex != lastIndex {
+				lastIndex = meta.LastIndex
+				continue
+			}
 			return err
 		}
 		lastIndex = meta.LastIndex
