@@ -108,16 +108,17 @@ func (c *Client) doRequest(r *request) (*http.Response, error) {
 	return http.DefaultClient.Do(req)
 }
 
-func (c *Client) call(r *request) error {
+func (c *Client) call(r *request) ([]byte, error) {
 	resp, err := c.doRequest(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return readError(resp)
+		return nil, readError(resp)
 	}
-	discardBody(resp)
-	return nil
+	data, _ := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	return data, nil
 }
 
 func (c *Client) query(r *request, o *QueryOptions, out interface{}) (*QueryMeta, error) {
@@ -150,27 +151,30 @@ func (c *Client) query(r *request, o *QueryOptions, out interface{}) (*QueryMeta
 }
 
 func (c *Client) AgentPassTTL(id string, note string) error {
-	return c.call(&request{
+	_, err := c.call(&request{
 		method: "PUT",
 		path:   "/v1/agent/check/pass/" + id,
 		params: []string{"note", note},
 	})
+	return err
 }
 
 func (c *Client) AgentServiceRegister(s *AgentService) error {
 	body, _ := json.Marshal(s)
-	return c.call(&request{
+	_, err := c.call(&request{
 		method: "PUT",
 		path:   "/v1/agent/service/register",
 		body:   body,
 	})
+	return err
 }
 
 func (c *Client) AgentServiceDeregister(id string) error {
-	return c.call(&request{
+	_, err := c.call(&request{
 		method: "PUT",
 		path:   "/v1/agent/service/deregister/" + id,
 	})
+	return err
 }
 
 func (c *Client) CatalogService(service string, tag string, options *QueryOptions) ([]CatalogService, *QueryMeta, error) {
@@ -190,6 +194,24 @@ func (c *Client) CatalogService(service string, tag string, options *QueryOption
 	return svcs, meta, nil
 }
 
+func (c *Client) kvput(key string, value []byte, params []string) (bool, error) {
+	raw, err := c.call(&request{
+		method: "PUT",
+		path:   "/v1/kv/" + strings.TrimPrefix(key, "/"),
+		params: params,
+		body:   value,
+	})
+	if err != nil {
+		return false, err
+	}
+	var b bool
+	err = json.Unmarshal(raw, &b)
+	if err != nil {
+		return false, err
+	}
+	return b, nil
+}
+
 func (c *Client) KVList(prefix string, options *QueryOptions) ([]KVPair, *QueryMeta, error) {
 	var pairs []KVPair
 	meta, err := c.query(&request{
@@ -200,10 +222,22 @@ func (c *Client) KVList(prefix string, options *QueryOptions) ([]KVPair, *QueryM
 	return pairs, meta, err
 }
 
-func (c *Client) KVPut(key string, value string) error {
-	return c.call(&request{
-		method: "PUT",
+func (c *Client) KVGet(key string, options *QueryOptions) (*KVPair, *QueryMeta, error) {
+	var pairs []KVPair
+	meta, err := c.query(&request{
+		method: "GET",
 		path:   "/v1/kv/" + strings.TrimPrefix(key, "/"),
-		body:   []byte(value),
-	})
+	}, options, &pairs)
+	if len(pairs) > 0 {
+		return &pairs[0], meta, err
+	}
+	return nil, meta, err
+}
+
+func (c *Client) KVPut(key string, value []byte) (bool, error) {
+	return c.kvput(key, value, nil)
+}
+
+func (c *Client) KVCAS(key string, value []byte, cas uint64) (bool, error) {
+	return c.kvput(key, value, []string{"cas", strconv.FormatUint(cas, 10)})
 }

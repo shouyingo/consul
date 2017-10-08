@@ -13,10 +13,16 @@ func TestKVList(t *testing.T) {
 	for {
 		kv, meta, err := c.KVList("k1/", &QueryOptions{WaitIndex: lastidx})
 		if err != nil {
-			t.Fatal(err)
+			t.Log(err)
+			break
 		}
 		log.Printf("kv: %+v", kv)
 		log.Printf("meta: %+v", meta)
 		lastidx = meta.LastIndex
 	}
+}
+
+func TestKVPut(t *testing.T) {
+	c := New("http://127.0.0.1:8500", "")
+	t.Log(c.KVCAS("k1", []byte(`v2`), 0))
 }
