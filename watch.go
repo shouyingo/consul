@@ -28,6 +28,10 @@ func (c *Client) WatchCatalogService(service string, tag string, wfn WatchFunc) 
 			}
 			return err
 		}
+		if lastIndex == meta.LastIndex {
+			continue
+		}
+
 		lastIndex = meta.LastIndex
 		for i := range services {
 			s := &services[i]
