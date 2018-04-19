@@ -130,6 +130,9 @@ func (c *Client) query(r *request, o *QueryOptions, out interface{}) (*QueryMeta
 			r.params = append(r.params, "wait", strconv.FormatInt(int64(o.WaitTime/time.Millisecond), 10)+"ms")
 		}
 	}
+	if c.dc != "" {
+		r.params = append(r.params, "dc", c.dc)
+	}
 	resp, err := c.doRequest(r)
 	if err != nil {
 		return nil, err

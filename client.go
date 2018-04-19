@@ -9,6 +9,7 @@ import (
 type Client struct {
 	addr  string
 	token string
+	dc    string
 }
 
 func (c *Client) KeepAlive(id string, ttl time.Duration, cancel <-chan struct{}) error {
@@ -52,5 +53,17 @@ func New(addr string, token string) *Client {
 	return &Client{
 		addr:  addr,
 		token: token,
+	}
+}
+
+func NewClient(addr string, token string, dc string) *Client {
+	addr = strings.Trim(addr, "/")
+	if !strings.Contains(addr, "://") {
+		addr = "http://" + addr
+	}
+	return &Client{
+		addr:  addr,
+		token: token,
+		dc:    dc,
 	}
 }
