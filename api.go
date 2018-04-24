@@ -16,6 +16,8 @@ import (
 type QueryOptions struct {
 	WaitIndex uint64
 	WaitTime  time.Duration
+	DC        *string
+	Tag       *string
 }
 
 type QueryMeta struct {
@@ -122,7 +124,24 @@ func (c *Client) call(r *request) ([]byte, error) {
 }
 
 func (c *Client) query(r *request, o *QueryOptions, out interface{}) (*QueryMeta, error) {
+	dc := c.dc
 	if o != nil {
+		if o.DC != nil {
+			dc = *o.DC
+		}
+		if o.Tag != nil {
+			found := false
+			for i := 0; i < len(r.params); i += 2 {
+				if r.params[i] == "tag" {
+					r.params[i+1] = *o.Tag
+					found = true
+					break
+				}
+			}
+			if !found {
+				r.params = append(r.params, "tag", *o.Tag)
+			}
+		}
 		if o.WaitIndex != 0 {
 			r.params = append(r.params, "index", strconv.FormatUint(o.WaitIndex, 10))
 		}
@@ -130,8 +149,8 @@ func (c *Client) query(r *request, o *QueryOptions, out interface{}) (*QueryMeta
 			r.params = append(r.params, "wait", strconv.FormatInt(int64(o.WaitTime/time.Millisecond), 10)+"ms")
 		}
 	}
-	if c.dc != "" {
-		r.params = append(r.params, "dc", c.dc)
+	if dc != "" {
+		r.params = append(r.params, "dc", dc)
 	}
 	resp, err := c.doRequest(r)
 	if err != nil {
