@@ -244,6 +244,16 @@ func (c *Client) KVList(prefix string, options *QueryOptions) ([]KVPair, *QueryM
 	return pairs, meta, err
 }
 
+func (c *Client) KVKeys(prefix string, options *QueryOptions) ([]string, *QueryMeta, error) {
+	var keys []string
+	meta, err := c.query(&request{
+		method: "GET",
+		path:   "/v1/kv/" + strings.TrimPrefix(prefix, "/"),
+		params: []string{"keys", ""},
+	}, options, &keys)
+	return keys, meta, err
+}
+
 func (c *Client) KVGet(key string, options *QueryOptions) (*KVPair, *QueryMeta, error) {
 	var pairs []KVPair
 	meta, err := c.query(&request{
