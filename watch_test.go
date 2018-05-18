@@ -1,27 +1,21 @@
-// +build tested
-
 package consul
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 	"time"
 )
 
-func TestWatch(t *testing.T) {
-	c := New("http://127.0.0.1:8500", "")
+func TestWatchCatalogService(t *testing.T) {
+	c := NewClient("http://127.0.0.1:8500", "", "")
 	wg := sync.WaitGroup{}
-	wg.Add(3)
-	go func() {
-		defer wg.Done()
-		err := c.Watch("consul-watch", "", func(action int, id string, s *CatalogService) {
-			fmt.Println(">>>> onwatch", action, id, s)
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
+	wg.Add(2)
+	go c.WatchCatalogService("consul-watch", "", func(services []CatalogService) error {
+		fmt.Println("watched service:", services)
+		return nil
+	})
 	svcmock := func(bad bool) {
 		defer wg.Done()
 		svc := &AgentService{
@@ -38,7 +32,7 @@ func TestWatch(t *testing.T) {
 			return
 		}
 		ch := make(chan struct{})
-		time.AfterFunc(20*time.Second, func() {
+		time.AfterFunc(15*time.Second, func() {
 			close(ch)
 		})
 		err = c.KeepAlive(id, 9*time.Second, ch)
@@ -53,4 +47,15 @@ func TestWatch(t *testing.T) {
 	go svcmock(false)
 
 	wg.Wait()
+}
+
+func TestWatchKey(t *testing.T) {
+	c := NewClient("http://127.0.0.1:8500", "", "")
+	go func() {
+		c.KVPut("test-key", []byte(`hello world`))
+	}()
+	c.WatchKey("test-key", func(value *KVPair) error {
+		fmt.Println("watched key:", value)
+		return io.EOF
+	})
 }

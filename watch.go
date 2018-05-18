@@ -1,61 +1,53 @@
 package consul
 
-const (
-	WatchAdd = iota
-	WatchChange
-	WatchRemove
+import (
+	"time"
 )
 
-type WatchFunc func(action int, id string, svc *CatalogService)
-
-type watchService struct {
-	svc         *CatalogService
-	modifyIndex uint64
-	lastIndex   uint64
-}
-
-func (c *Client) WatchCatalogService(service string, tag string, wfn WatchFunc) error {
-	watchsvcs := make(map[string]*watchService)
+func (c *Client) WatchCatalogService(service string, tag string, fn func([]CatalogService) error) error {
 	lastIndex := uint64(0)
 	for {
 		services, meta, err := c.CatalogService(service, tag, &QueryOptions{
 			WaitIndex: lastIndex,
 		})
 		if err != nil {
-			if meta != nil && meta.LastIndex != lastIndex {
+			if meta != nil {
 				lastIndex = meta.LastIndex
-				continue
 			}
-			return err
+			time.Sleep(time.Second)
+			continue
 		}
 		if lastIndex == meta.LastIndex {
 			continue
 		}
-
 		lastIndex = meta.LastIndex
-		for i := range services {
-			s := &services[i]
-			ws := watchsvcs[s.ServiceID]
-			if ws == nil {
-				ws = &watchService{
-					svc:         s,
-					modifyIndex: s.ModifyIndex,
-				}
-				watchsvcs[s.ServiceID] = ws
-				wfn(WatchAdd, s.ServiceID, ws.svc)
-			} else if ws.modifyIndex != s.ModifyIndex {
-				ws.svc = s
-				ws.modifyIndex = s.ModifyIndex
-				wfn(WatchChange, s.ServiceID, ws.svc)
-			}
-			ws.lastIndex = lastIndex
-		}
-		for id, ws := range watchsvcs {
-			if ws.lastIndex != lastIndex {
-				delete(watchsvcs, id)
-				wfn(WatchRemove, id, ws.svc)
-			}
+		err = fn(services)
+		if err != nil {
+			return err
 		}
 	}
-	return nil
+}
+
+func (c *Client) WatchKey(key string, fn func(*KVPair) error) error {
+	lastIndex := uint64(0)
+	for {
+		value, meta, err := c.KVGet(key, &QueryOptions{
+			WaitIndex: lastIndex,
+		})
+		if err != nil {
+			if meta != nil {
+				lastIndex = meta.LastIndex
+			}
+			time.Sleep(time.Second)
+			continue
+		}
+		if meta.LastIndex == lastIndex {
+			continue
+		}
+		lastIndex = meta.LastIndex
+		err = fn(value)
+		if err != nil {
+			return err
+		}
+	}
 }

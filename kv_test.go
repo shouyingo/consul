@@ -1,5 +1,3 @@
-// +build tested
-
 package consul
 
 import (
