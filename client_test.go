@@ -8,7 +8,7 @@ import (
 )
 
 func TestServiceRegister(t *testing.T) {
-	c := New("http://127.0.0.1:8500", "")
+	c := NewClient("http://127.0.0.1:8500", "", "")
 	id, err := c.Register(&AgentService{
 		Name:    "consul-test",
 		Address: "127.0.0.1",

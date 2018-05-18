@@ -8,7 +8,7 @@ import (
 )
 
 func TestKVList(t *testing.T) {
-	c := New("http://127.0.0.1:8500", "")
+	c := NewClient("http://127.0.0.1:8500", "", "")
 	lastidx := uint64(0)
 	for {
 		kv, meta, err := c.KVList("k1/", &QueryOptions{WaitIndex: lastidx})
@@ -23,6 +23,6 @@ func TestKVList(t *testing.T) {
 }
 
 func TestKVPut(t *testing.T) {
-	c := New("http://127.0.0.1:8500", "")
+	c := NewClient("http://127.0.0.1:8500", "", "")
 	t.Log(c.KVCAS("k1", []byte(`v2`), 0))
 }
