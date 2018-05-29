@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-func (c *Client) WatchCatalogService(service string, tag string, fn func([]CatalogService) error) error {
+func (c *Client) WatchCatalogService(service string, tag string, fn func([]CatalogService, uint64) error) error {
 	lastIndex := uint64(0)
 	for {
 		services, meta, err := c.CatalogService(service, tag, &QueryOptions{
@@ -21,14 +21,14 @@ func (c *Client) WatchCatalogService(service string, tag string, fn func([]Catal
 			continue
 		}
 		lastIndex = meta.LastIndex
-		err = fn(services)
+		err = fn(services, lastIndex)
 		if err != nil {
 			return err
 		}
 	}
 }
 
-func (c *Client) WatchKey(key string, fn func(*KVPair) error) error {
+func (c *Client) WatchKey(key string, fn func(*KVPair, uint64) error) error {
 	lastIndex := uint64(0)
 	for {
 		value, meta, err := c.KVGet(key, &QueryOptions{
@@ -45,7 +45,7 @@ func (c *Client) WatchKey(key string, fn func(*KVPair) error) error {
 			continue
 		}
 		lastIndex = meta.LastIndex
-		err = fn(value)
+		err = fn(value, lastIndex)
 		if err != nil {
 			return err
 		}

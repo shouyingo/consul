@@ -12,8 +12,8 @@ func TestWatchCatalogService(t *testing.T) {
 	c := NewClient("http://127.0.0.1:8500", "", "")
 	wg := sync.WaitGroup{}
 	wg.Add(2)
-	go c.WatchCatalogService("consul-watch", "", func(services []CatalogService) error {
-		fmt.Println("watched service:", services)
+	go c.WatchCatalogService("consul-watch", "", func(services []CatalogService, lastIndex uint64) error {
+		fmt.Println("watched service:", services, "index", lastIndex)
 		return nil
 	})
 	svcmock := func(bad bool) {
@@ -54,8 +54,8 @@ func TestWatchKey(t *testing.T) {
 	go func() {
 		c.KVPut("test-key", []byte(`hello world`))
 	}()
-	c.WatchKey("test-key", func(value *KVPair) error {
-		fmt.Println("watched key:", value)
+	c.WatchKey("test-key", func(value *KVPair, lastIndex uint64) error {
+		fmt.Println("watched key:", value, "index", lastIndex)
 		return io.EOF
 	})
 }

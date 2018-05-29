@@ -1,6 +1,8 @@
 package consul
 
 import (
+	"os"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -11,6 +13,7 @@ func TestServiceRegister(t *testing.T) {
 		Name:    "consul-test",
 		Address: "127.0.0.1",
 		Port:    6621,
+		Meta:    map[string]string{"pid": strconv.Itoa(os.Getpid())},
 		Tags:    []string{"v1"},
 	}, time.Second*10, time.Minute)
 	if err != nil {

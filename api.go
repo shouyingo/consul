@@ -46,6 +46,7 @@ type AgentService struct {
 	Address string
 	Port    int
 	Tags    []string
+	Meta    map[string]string
 	Check   AgentServiceCheck
 }
 
