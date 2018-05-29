@@ -30,6 +30,7 @@ type CatalogService struct {
 	ServiceAddress string
 	ServicePort    int
 	ServiceTags    []string
+	ServiceMeta    map[string]string
 
 	CreateIndex uint64
 	ModifyIndex uint64
